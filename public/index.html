@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jaika.id.vn - Trang Web Thông Minh</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav">
+            <div class="nav-brand">
+                <h1>Jaika.id.vn</h1>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#home">Trang chủ</a></li>
+                <li><a href="#ai">AI Chat</a></li>
+                <li><a href="#data">Dữ liệu</a></li>
+                <li><a href="#about">Giới thiệu</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Hero Section -->
+        <section id="home" class="hero">
+            <div class="hero-content">
+                <h1 class="hero-title">Chào mừng đến với Jaika.id.vn</h1>
+                <p class="hero-subtitle">Trang web thông minh tích hợp AI và database</p>
+                <div class="hero-buttons">
+                    <button class="btn btn-primary" onclick="scrollToSection('ai')">
+                        <i class="fas fa-robot"></i> Thử AI Chat
+                    </button>
+                    <button class="btn btn-secondary" onclick="scrollToSection('data')">
+                        <i class="fas fa-database"></i> Xem Dữ liệu
+                    </button>
+                </div>
+            </div>
+            <div class="hero-image">
+                <div class="floating-card">
+                    <i class="fas fa-brain"></i>
+                    <h3>AI Powered</h3>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI Chat Section -->
+        <section id="ai" class="ai-section">
+            <div class="container">
+                <h2 class="section-title">AI Chat Assistant</h2>
+                <p class="section-subtitle">Tương tác với AI thông minh từ Google AI Studio</p>
+                
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message ai-message">
+                            <div class="message-content">
+                                <i class="fas fa-robot"></i>
+                                <p>Xin chào! Tôi là AI assistant. Bạn có thể hỏi tôi bất cứ điều gì!</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input-container">
+                        <div class="chat-input-wrapper">
+                            <input type="text" id="chatInput" placeholder="Nhập câu hỏi của bạn..." class="chat-input">
+                            <button id="sendButton" class="send-button">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Section -->
+        <section id="data" class="data-section">
+            <div class="container">
+                <h2 class="section-title">Quản lý Dữ liệu</h2>
+                <p class="section-subtitle">Xem và quản lý dữ liệu từ database</p>
+                
+                <div class="data-controls">
+                    <button class="btn btn-primary" onclick="loadData()">
+                        <i class="fas fa-refresh"></i> Tải dữ liệu
+                    </button>
+                    <button class="btn btn-secondary" onclick="showAddForm()">
+                        <i class="fas fa-plus"></i> Thêm dữ liệu
+                    </button>
+                </div>
+                
+                <div class="data-container">
+                    <div id="dataList" class="data-list">
+                        <!-- Data will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Add Data Modal -->
+        <div id="addModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3>Thêm dữ liệu mới</h3>
+                <form id="addDataForm">
+                    <div class="form-group">
+                        <label for="name">Tên:</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Mô tả:</label>
+                        <textarea id="description" name="description" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Lưu</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- About Section -->
+        <section id="about" class="about-section">
+            <div class="container">
+                <h2 class="section-title">Về Jaika.id.vn</h2>
+                <div class="about-content">
+                    <div class="about-card">
+                        <i class="fas fa-globe"></i>
+                        <h3>Domain</h3>
+                        <p>Jaika.id.vn - Tên miền chính thức của dự án</p>
+                    </div>
+                    <div class="about-card">
+                        <i class="fas fa-database"></i>
+                        <h3>Database</h3>
+                        <p>Hệ thống lưu trữ dữ liệu an toàn và hiệu quả</p>
+                    </div>
+                    <div class="about-card">
+                        <i class="fas fa-robot"></i>
+                        <h3>AI Integration</h3>
+                        <p>Tích hợp Google AI Studio để tạo trải nghiệm thông minh</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Jaika.id.vn. Tất cả quyền được bảo lưu.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html> 
