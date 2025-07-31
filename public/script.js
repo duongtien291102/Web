@@ -50,7 +50,7 @@ async function sendMessage() {
     showTypingIndicator();
 
     try {
-        const response = await fetch('/api/ai', {
+        const response = await fetch('/.netlify/functions/ai', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ function removeTypingIndicator() {
 // Data Management Functions
 async function loadData() {
     try {
-        const response = await fetch('/api/data');
+        const response = await fetch('/.netlify/functions/data');
         const data = await response.json();
         
         if (data.success) {
@@ -184,7 +184,7 @@ async function handleAddData(e) {
     };
     
     try {
-        const response = await fetch('/api/save', {
+        const response = await fetch('/.netlify/functions/data', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -316,7 +316,7 @@ function setButtonLoading(button, isLoading) {
 // Health check on page load
 async function checkHealth() {
     try {
-        const response = await fetch('/api/health');
+        const response = await fetch('/.netlify/functions/health');
         const data = await response.json();
         console.log('Server health:', data);
     } catch (error) {
