@@ -35,7 +35,7 @@ const noteSchema = new mongoose.Schema({
   title: { type: String, default: '' },
   content: { type: String, default: '' },
   contentType: { type: String, enum: ['plain', 'rich', 'task'], default: 'plain' },
-  shareId: { type: String, index: true },
+  shareId: { type: String },
   isPublic: { type: Boolean, default: true },
   password: { type: String, default: null },
   editorPassword: { type: String, default: null },
