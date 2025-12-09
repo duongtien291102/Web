@@ -27,11 +27,17 @@
 <body>
   <header>
     <div>Note Online</div>
-    <div id="authStatus" class="muted"></div>
+    <div class="row" style="gap:12px">
+      <button id="btnShowAuth" class="ghost" style="font-size:14px">Đăng nhập</button>
+      <div id="authStatus" class="muted"></div>
+    </div>
   </header>
   <main>
-    <section class="card" id="authBox">
-      <h3>Đăng nhập / Đăng kí</h3>
+    <section class="card hidden" id="authBox">
+      <div class="flex-between">
+        <h3>Đăng nhập / Đăng kí</h3>
+        <button id="btnCloseAuth" class="ghost" style="font-size:20px;padding:4px 8px">×</button>
+      </div>
       <div class="row">
         <input type="email" id="email" placeholder="Email" required />
       </div>
@@ -45,10 +51,10 @@
       <div id="authMsg" class="muted"></div>
     </section>
 
-    <section class="card hidden" id="notesBox">
+    <section class="card" id="notesBox">
       <div class="flex-between">
-        <h3>Ghi chú của tôi</h3>
-        <button id="btnLogout" class="ghost">Đăng xuất</button>
+        <h3 id="notesTitle">Ghi chú của tôi</h3>
+        <button id="btnLogout" class="ghost hidden">Đăng xuất</button>
       </div>
       <div class="row">
         <button id="btnNew">Tạo ghi chú mới</button>
@@ -56,11 +62,12 @@
       <div class="row" style="gap:16px">
         <div style="width:100%">
           <ul id="notesList"></ul>
+          <div id="guestMsg" class="muted hidden" style="padding:12px;text-align:center">Đăng nhập để lưu ghi chú lên cloud</div>
         </div>
       </div>
     </section>
 
-    <section class="card hidden" id="editorBox">
+    <section class="card" id="editorBox">
       <h3>Soạn thảo</h3>
       <div class="row">
         <input id="title" placeholder="Tiêu đề" />
@@ -100,19 +107,32 @@
     let token = localStorage.getItem('token') || ''
     let currentNoteId = null
     let notes = []
+    let localNotes = JSON.parse(localStorage.getItem('localNotes') || '[]')
     let autoSaveTimer = null
+    let isGuest = !token
 
     function setAuthUI() {
+      const btnShowAuth = document.getElementById('btnShowAuth')
+      const btnLogout = document.getElementById('btnLogout')
+      const guestMsg = document.getElementById('guestMsg')
+      const notesTitle = document.getElementById('notesTitle')
+      
       if (token) {
-        authBox.classList.add('hidden')
-        notesBox.classList.remove('hidden')
-        editorBox.classList.remove('hidden')
+        btnShowAuth.classList.add('hidden')
+        btnLogout.classList.remove('hidden')
         authStatus.textContent = 'Đã đăng nhập'
+        guestMsg.classList.add('hidden')
+        notesTitle.textContent = 'Ghi chú của tôi'
+        isGuest = false
       } else {
-        authBox.classList.remove('hidden')
-        notesBox.classList.add('hidden')
-        editorBox.classList.add('hidden')
+        btnShowAuth.classList.remove('hidden')
+        btnLogout.classList.add('hidden')
         authStatus.textContent = ''
+        guestMsg.classList.remove('hidden')
+        notesTitle.textContent = 'Ghi chú (chế độ khách)'
+        isGuest = true
+        notes = localNotes
+        renderNotes()
       }
     }
 
@@ -192,13 +212,11 @@
     }
 
     function saveDraft() {
-      if (!token) return
       const draft = { title: titleEl.value, content: contentEl.value, noteId: currentNoteId }
       localStorage.setItem('draft', JSON.stringify(draft))
     }
 
     function loadDraft() {
-      if (!token) return
       const saved = localStorage.getItem('draft')
       if (!saved) return
       try {
@@ -222,30 +240,63 @@
       }, 1000)
     }
 
+    function saveLocalNotes() {
+      localStorage.setItem('localNotes', JSON.stringify(localNotes))
+    }
+
     async function saveNote() {
       editorMsg.textContent = ''
       const payload = { title: titleEl.value, content: contentEl.value }
-      if (!currentNoteId) {
-        const n = await api('/api/notes', { method: 'POST', body: JSON.stringify(payload) })
-        notes.unshift(n)
-        currentNoteId = n._id
+      
+      if (isGuest) {
+        if (!currentNoteId) {
+          const n = { _id: Date.now().toString(), title: payload.title, content: payload.content, createdAt: new Date(), updatedAt: new Date() }
+          localNotes.unshift(n)
+          currentNoteId = n._id
+        } else {
+          const idx = localNotes.findIndex(x => x._id === currentNoteId)
+          if (idx >= 0) {
+            localNotes[idx].title = payload.title
+            localNotes[idx].content = payload.content
+            localNotes[idx].updatedAt = new Date()
+          }
+        }
+        notes = localNotes
+        saveLocalNotes()
+        renderNotes()
+        shareArea.classList.add('hidden')
+        editorMsg.textContent = 'Đã lưu (local)'
       } else {
-        const n = await api('/api/notes/' + currentNoteId, { method: 'PUT', body: JSON.stringify(payload) })
-        const idx = notes.findIndex(x => x._id === currentNoteId)
-        if (idx >= 0) notes[idx] = n
+        if (!currentNoteId) {
+          const n = await api('/api/notes', { method: 'POST', body: JSON.stringify(payload) })
+          notes.unshift(n)
+          currentNoteId = n._id
+        } else {
+          const n = await api('/api/notes/' + currentNoteId, { method: 'PUT', body: JSON.stringify(payload) })
+          const idx = notes.findIndex(x => x._id === currentNoteId)
+          if (idx >= 0) notes[idx] = n
+        }
+        const cur = notes.find(x => x._id === currentNoteId)
+        shareArea.classList.remove('hidden')
+        shareLinkEl.value = location.origin + '/share/' + cur.shareId
+        renderNotes()
+        editorMsg.textContent = 'Đã lưu'
       }
-      const cur = notes.find(x => x._id === currentNoteId)
-      shareArea.classList.remove('hidden')
-      shareLinkEl.value = location.origin + '/share/' + cur.shareId
-      renderNotes()
       clearDraft()
-      editorMsg.textContent = 'Đã lưu'
     }
 
     async function deleteNote() {
       if (!currentNoteId) return
-      await api('/api/notes/' + currentNoteId, { method: 'DELETE' })
-      notes = notes.filter(x => x._id !== currentNoteId)
+      
+      if (isGuest) {
+        localNotes = localNotes.filter(x => x._id !== currentNoteId)
+        notes = localNotes
+        saveLocalNotes()
+      } else {
+        await api('/api/notes/' + currentNoteId, { method: 'DELETE' })
+        notes = notes.filter(x => x._id !== currentNoteId)
+      }
+      
       currentNoteId = null
       titleEl.value = ''
       contentEl.value = ''
@@ -257,13 +308,23 @@
     titleEl.addEventListener('input', autoSave)
     contentEl.addEventListener('input', autoSave)
 
+    document.getElementById('btnShowAuth').onclick = () => authBox.classList.remove('hidden')
+    document.getElementById('btnCloseAuth').onclick = () => authBox.classList.add('hidden')
     document.getElementById('btnRegister').onclick = register
     document.getElementById('btnLogin').onclick = login
-    document.getElementById('btnLogout').onclick = () => { localStorage.removeItem('token'); clearDraft(); token=''; setAuthUI() }
+    document.getElementById('btnLogout').onclick = () => { localStorage.removeItem('token'); clearDraft(); token=''; authBox.classList.add('hidden'); setAuthUI() }
     document.getElementById('btnNew').onclick = () => { currentNoteId=null; titleEl.value=''; contentEl.value=''; shareArea.classList.add('hidden'); clearDraft(); renderNotes() }
     document.getElementById('btnSave').onclick = saveNote
     document.getElementById('btnDelete').onclick = deleteNote
-    document.getElementById('btnShare').onclick = () => { if (!currentNoteId) return; const cur=notes.find(x=>x._id===currentNoteId); shareLinkEl.value = location.origin + '/share/' + cur.shareId; shareArea.classList.remove('hidden') }
+    document.getElementById('btnShare').onclick = () => { 
+      if (!currentNoteId || isGuest) {
+        editorMsg.textContent = 'Đăng nhập để share link'
+        return
+      }
+      const cur=notes.find(x=>x._id===currentNoteId)
+      shareLinkEl.value = location.origin + '/share/' + cur.shareId
+      shareArea.classList.remove('hidden')
+    }
     btnCopy.onclick = async () => { try { await navigator.clipboard.writeText(shareLinkEl.value) } catch(e){} }
 
     setAuthUI()
