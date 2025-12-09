@@ -46,8 +46,13 @@
     .note-item { padding: 12px; border-bottom: 1px solid #ecf0f1; cursor: pointer; transition: background 0.2s; }
     .note-item:hover { background: #f8f9fa; }
     .note-item.active { background: #e3f2fd; border-left: 3px solid #3498db; }
-    .note-item-title { font-weight: 500; color: #2c3e50; margin-bottom: 4px; }
+    .note-item-title { font-weight: 500; color: #2c3e50; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .note-item-title .note-icons { display: flex; gap: 4px; }
+    .note-item-title .note-icons span { font-size: 12px; }
     .note-item-date { font-size: 12px; color: #95a5a6; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+    .badge-private { background: #ffeaa7; color: #d68910; }
+    .badge-password { background: #dfe6e9; color: #636e72; }
     
     .editor-toolbar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
     
@@ -161,23 +166,35 @@
   <div id="settingsModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Cài đặt ghi chú</h3>
+        <h3>🔒 Cài đặt bảo mật</h3>
         <button class="modal-close" onclick="closeModal('settingsModal')">×</button>
       </div>
-      <div class="checkbox-group">
-        <input type="checkbox" id="isPublic" checked />
-        <label for="isPublic">Ghi chú công khai</label>
+      
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+        <div class="checkbox-group" style="margin-bottom: 0;">
+          <input type="checkbox" id="isPublic" checked />
+          <label for="isPublic" style="font-weight: 600;">🌐 Ghi chú công khai</label>
+        </div>
+        <p class="muted" style="margin-left: 24px; margin-top: 5px;">Khi tắt, chỉ bạn mới xem được ghi chú này</p>
       </div>
+      
       <div class="form-group">
-        <label>Mật khẩu xem (tùy chọn)</label>
-        <input type="text" id="viewPassword" placeholder="Để trống nếu không cần" />
+        <label>🔑 Mật khẩu xem</label>
+        <input type="password" id="viewPassword" placeholder="Nhập mật khẩu để bảo vệ khi chia sẻ" />
+        <p class="muted" style="margin-top: 5px;">Người khác cần nhập mật khẩu này để xem nội dung</p>
       </div>
+      
       <div class="form-group">
-        <label>Mật khẩu chỉnh sửa (tùy chọn)</label>
-        <input type="text" id="editorPassword" placeholder="Cho phép người khác chỉnh sửa" />
+        <label>✏️ Mật khẩu chỉnh sửa</label>
+        <input type="password" id="editorPassword" placeholder="Nhập mật khẩu cho phép người khác sửa" />
+        <p class="muted" style="margin-top: 5px;">Cho phép người có mật khẩu này chỉnh sửa ghi chú qua link chia sẻ</p>
       </div>
+      
+      <div id="settingsMsg" class="muted" style="margin-bottom: 10px;"></div>
+      
       <div class="btn-group">
-        <button id="btnSaveSettings" class="success">Lưu cài đặt</button>
+        <button id="btnSaveSettings" class="success">💾 Lưu cài đặt</button>
+        <button id="btnClearPasswords" class="ghost">🗑️ Xóa mật khẩu</button>
         <button class="ghost" onclick="closeModal('settingsModal')">Hủy</button>
       </div>
     </div>
@@ -372,8 +389,18 @@
       notes.forEach(n => {
         const li = document.createElement('li')
         li.className = 'note-item' + (n._id === currentNoteId ? ' active' : '')
+        
+        // Build icons for privacy indicators
+        let icons = ''
+        if (n.isPublic === false) icons += '<span title="Riêng tư">🔒</span>'
+        if (n.password) icons += '<span title="Có mật khẩu xem">🔑</span>'
+        if (n.editorPassword) icons += '<span title="Có mật khẩu sửa">✏️</span>'
+        
         li.innerHTML = `
-          <div class="note-item-title">${n.title || '(Không có tiêu đề)'}</div>
+          <div class="note-item-title">
+            <span>${n.title || '(Không có tiêu đề)'}</span>
+            <span class="note-icons">${icons}</span>
+          </div>
           <div class="note-item-date">${new Date(n.updatedAt).toLocaleDateString('vi-VN')}</div>
         `
         li.onclick = () => selectNote(n._id)
@@ -600,9 +627,64 @@
     document.getElementById('btnDelete').onclick = deleteNote
     document.getElementById('btnShare').onclick = shareNote
     document.getElementById('btnExport').onclick = exportNote
-    document.getElementById('btnSettings').onclick = () => showModal('settingsModal')
+    document.getElementById('btnSettings').onclick = openSettings
+    document.getElementById('btnSaveSettings').onclick = saveSettings
+    document.getElementById('btnClearPasswords').onclick = clearPasswords
     document.getElementById('btnLogin').onclick = login
     document.getElementById('btnRegister').onclick = register
+
+    function openSettings() {
+      if (!currentNoteId) {
+        alert('Vui lòng chọn hoặc tạo ghi chú trước')
+        return
+      }
+      
+      const note = notes.find(n => n._id === currentNoteId)
+      if (note) {
+        document.getElementById('isPublic').checked = note.isPublic !== false
+        document.getElementById('viewPassword').value = note.password || ''
+        document.getElementById('editorPassword').value = note.editorPassword || ''
+        document.getElementById('settingsMsg').textContent = ''
+      }
+      showModal('settingsModal')
+    }
+
+    async function saveSettings() {
+      if (!currentNoteId) return
+      
+      const isPublic = document.getElementById('isPublic').checked
+      const password = document.getElementById('viewPassword').value.trim() || null
+      const editorPassword = document.getElementById('editorPassword').value.trim() || null
+      const settingsMsg = document.getElementById('settingsMsg')
+      
+      try {
+        const note = await api(`/api/notes/${currentNoteId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ isPublic, password, editorPassword })
+        })
+        
+        // Update local notes array
+        const idx = notes.findIndex(n => n._id === currentNoteId)
+        if (idx >= 0) notes[idx] = note
+        
+        renderNotes()
+        settingsMsg.textContent = '✓ Đã lưu cài đặt bảo mật'
+        settingsMsg.style.color = '#27ae60'
+        
+        setTimeout(() => closeModal('settingsModal'), 1500)
+      } catch (e) {
+        settingsMsg.textContent = 'Lỗi khi lưu cài đặt'
+        settingsMsg.style.color = '#e74c3c'
+      }
+    }
+
+    function clearPasswords() {
+      document.getElementById('viewPassword').value = ''
+      document.getElementById('editorPassword').value = ''
+      document.getElementById('settingsMsg').textContent = 'Đã xóa mật khẩu. Nhấn "Lưu cài đặt" để áp dụng.'
+      document.getElementById('settingsMsg').style.color = '#f39c12'
+    }
+
 
     ;(async () => {
       console.log('Initializing app...')
