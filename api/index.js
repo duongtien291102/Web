@@ -300,4 +300,27 @@ app.get('/share/:shareId', (req, res) => {
   res.sendFile(path.join(__dirname, '../public', 'share.html'))
 })
 
+// Debug endpoint to check connection status
+app.get('/api/debug', async (req, res) => {
+  try {
+    await connectDB()
+    return res.json({
+      mongoUriExists: !!MONGO_URI,
+      mongoUriPrefix: MONGO_URI ? MONGO_URI.substring(0, 20) + '...' : 'NOT SET',
+      jwtSecretExists: !!JWT_SECRET,
+      isConnected: isConnected,
+      mongooseState: mongoose.connection.readyState,
+      // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+      stateDescription: ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown'
+    })
+  } catch (e) {
+    return res.json({
+      mongoUriExists: !!MONGO_URI,
+      mongoUriPrefix: MONGO_URI ? MONGO_URI.substring(0, 20) + '...' : 'NOT SET',
+      isConnected: false,
+      error: e.message
+    })
+  }
+})
+
 module.exports = app
