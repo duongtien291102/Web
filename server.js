@@ -15,10 +15,13 @@ app.use(express.static(path.join(__dirname, 'public')))
 const MONGO_URI = process.env.MONGO_URI
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret'
 
-mongoose.connect(MONGO_URI).then(() => {
-  console.log('MongoDB connected')
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+}).then(() => {
+  console.log('MongoDB connected successfully')
 }).catch((e) => {
-  console.error('MongoDB connection error')
+  console.error('MongoDB connection error:', e.message)
 })
 
 const userSchema = new mongoose.Schema({
