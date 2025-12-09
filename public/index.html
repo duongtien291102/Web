@@ -3,113 +3,231 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Note Online</title>
+  <title>Note Online - Anotepad Clone</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>" />
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 0; }
-    header { padding: 12px 16px; background: #222; color: #fff; display: flex; align-items: center; justify-content: space-between; }
-    main { padding: 16px; display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
-    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
-    .row { display: flex; gap: 8px; align-items: center; }
-    input, textarea, button { font: inherit; }
-    input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
-    textarea { min-height: 220px; }
-    button { padding: 8px 12px; border: 1px solid #333; background: #333; color: #fff; border-radius: 6px; cursor: pointer; }
-    button.ghost { background: #fff; color: #333; }
-    ul { list-style: none; margin: 0; padding: 0; }
-    li { padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; }
-    li.active { background: #f5f5f5; }
-    .hidden { display: none; }
-    .muted { color: #666; font-size: 12px; }
-    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #f5f5f5; }
+    
+    header { background: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    header h1 { font-size: 24px; font-weight: 600; }
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+    
+    .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+    .main-grid { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+    
+    .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card h3 { margin-bottom: 15px; font-size: 18px; color: #2c3e50; }
+    
+    button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+    button.primary { background: #3498db; color: white; }
+    button.primary:hover { background: #2980b9; }
+    button.secondary { background: #95a5a6; color: white; }
+    button.secondary:hover { background: #7f8c8d; }
+    button.ghost { background: transparent; border: 1px solid #bdc3c7; color: #2c3e50; }
+    button.ghost:hover { background: #ecf0f1; }
+    button.success { background: #27ae60; color: white; }
+    button.success:hover { background: #229954; }
+    button.danger { background: #e74c3c; color: white; }
+    button.danger:hover { background: #c0392b; }
+    
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #3498db; }
+    
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: #2c3e50; font-size: 14px; }
+    
+    .tabs { display: flex; gap: 5px; margin-bottom: 15px; border-bottom: 2px solid #ecf0f1; }
+    .tab { padding: 10px 20px; cursor: pointer; border: none; background: none; color: #7f8c8d; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+    .tab.active { color: #3498db; border-bottom-color: #3498db; }
+    
+    .note-list { list-style: none; }
+    .note-item { padding: 12px; border-bottom: 1px solid #ecf0f1; cursor: pointer; transition: background 0.2s; }
+    .note-item:hover { background: #f8f9fa; }
+    .note-item.active { background: #e3f2fd; border-left: 3px solid #3498db; }
+    .note-item-title { font-weight: 500; color: #2c3e50; margin-bottom: 4px; }
+    .note-item-date { font-size: 12px; color: #95a5a6; }
+    
+    .editor-toolbar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+    
+    #editor { min-height: 400px; background: white; }
+    .ql-editor { min-height: 400px; font-size: 15px; }
+    
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.show { display: flex; }
+    .modal-content { background: white; border-radius: 8px; padding: 25px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-header h3 { font-size: 20px; color: #2c3e50; }
+    .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #95a5a6; padding: 0; width: 30px; height: 30px; }
+    
+    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .checkbox-group input[type="checkbox"] { width: auto; }
+    
+    .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+    
+    .hidden { display: none !important; }
+    .muted { color: #95a5a6; font-size: 13px; }
+    
+    @media (max-width: 768px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
   </style>
 </head>
 <body>
   <header>
-    <div>Note Online</div>
-    <div class="row" style="gap:12px">
-      <button id="btnShowAuth" class="ghost" style="font-size:14px">Đăng nhập</button>
-      <div id="authStatus" class="muted"></div>
+    <h1>📝 Note Online</h1>
+    <div class="header-actions">
+      <button id="btnShowAuth" class="ghost">Đăng nhập</button>
+      <span id="authStatus" class="muted"></span>
     </div>
   </header>
-  <main>
-    <section class="card hidden" id="authBox">
-      <div class="flex-between">
-        <h3>Đăng nhập / Đăng kí</h3>
-        <button id="btnCloseAuth" class="ghost" style="font-size:20px;padding:4px 8px">×</button>
+
+  <div class="container">
+    <div class="main-grid">
+      <aside class="sidebar">
+        <div class="card">
+          <h3>Ghi chú của tôi</h3>
+          <button id="btnNew" class="primary" style="width:100%; margin-bottom:15px">+ Tạo mới</button>
+          <ul id="notesList" class="note-list"></ul>
+          <div id="guestMsg" class="muted hidden" style="margin-top:15px; text-align:center">Chế độ khách - Tối đa 10 ghi chú</div>
+        </div>
+      </aside>
+
+      <main>
+        <div class="card">
+          <div class="tabs">
+            <button class="tab active" data-type="plain">Plain Text</button>
+            <button class="tab" data-type="rich">Rich Text</button>
+            <button class="tab" data-type="task">Task List</button>
+          </div>
+
+          <div class="form-group">
+            <input type="text" id="title" placeholder="Tiêu đề ghi chú..." />
+          </div>
+
+          <div id="plainEditor" class="editor-container">
+            <textarea id="plainContent" placeholder="Nhập nội dung..." style="min-height:400px; font-family:monospace"></textarea>
+          </div>
+
+          <div id="richEditor" class="editor-container hidden">
+            <div id="editor"></div>
+          </div>
+
+          <div id="taskEditor" class="editor-container hidden">
+            <div id="taskList"></div>
+            <button id="btnAddTask" class="ghost" style="margin-top:10px">+ Thêm công việc</button>
+          </div>
+
+          <div class="editor-toolbar">
+            <button id="btnSave" class="success">💾 Lưu</button>
+            <button id="btnShare" class="primary">🔗 Share</button>
+            <button id="btnSettings" class="ghost">⚙️ Cài đặt</button>
+            <button id="btnExport" class="ghost">📥 Tải xuống</button>
+            <button id="btnDelete" class="danger">🗑️ Xóa</button>
+          </div>
+
+          <div id="editorMsg" class="muted" style="margin-top:10px"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Auth Modal -->
+  <div id="authModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Đăng nhập / Đăng ký</h3>
+        <button class="modal-close" onclick="closeModal('authModal')">×</button>
       </div>
-      <div class="row">
-        <input type="email" id="email" placeholder="Email" required />
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="email" placeholder="your@email.com" />
       </div>
-      <div class="row">
-        <input type="password" id="password" placeholder="Mật khẩu" minlength="6" required />
-      </div>
-      <div class="row">
-        <button id="btnLogin">Đăng nhập</button>
-        <button id="btnRegister" class="ghost">Đăng kí</button>
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="password" placeholder="Tối thiểu 6 ký tự" />
       </div>
       <div id="authMsg" class="muted"></div>
-    </section>
+      <div class="btn-group">
+        <button id="btnLogin" class="primary">Đăng nhập</button>
+        <button id="btnRegister" class="secondary">Đăng ký</button>
+      </div>
+    </div>
+  </div>
 
-    <section class="card" id="notesBox">
-      <div class="flex-between">
-        <h3 id="notesTitle">Ghi chú của tôi</h3>
-        <button id="btnLogout" class="ghost hidden">Đăng xuất</button>
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Cài đặt ghi chú</h3>
+        <button class="modal-close" onclick="closeModal('settingsModal')">×</button>
       </div>
-      <div class="row">
-        <button id="btnNew">Tạo ghi chú mới</button>
+      <div class="checkbox-group">
+        <input type="checkbox" id="isPublic" checked />
+        <label for="isPublic">Ghi chú công khai</label>
       </div>
-      <div class="row" style="gap:16px">
-        <div style="width:100%">
-          <ul id="notesList"></ul>
-          <div id="guestMsg" class="muted hidden" style="padding:12px;text-align:center">Chế độ khách - Ghi chú lưu trên server, đăng nhập để quản lý</div>
-        </div>
+      <div class="form-group">
+        <label>Mật khẩu xem (tùy chọn)</label>
+        <input type="text" id="viewPassword" placeholder="Để trống nếu không cần" />
       </div>
-    </section>
+      <div class="form-group">
+        <label>Mật khẩu chỉnh sửa (tùy chọn)</label>
+        <input type="text" id="editorPassword" placeholder="Cho phép người khác chỉnh sửa" />
+      </div>
+      <div class="btn-group">
+        <button id="btnSaveSettings" class="success">Lưu cài đặt</button>
+        <button class="ghost" onclick="closeModal('settingsModal')">Hủy</button>
+      </div>
+    </div>
+  </div>
 
-    <section class="card" id="editorBox">
-      <h3>Soạn thảo</h3>
-      <div class="row">
-        <input id="title" placeholder="Tiêu đề" />
+  <!-- Share Modal -->
+  <div id="shareModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Chia sẻ ghi chú</h3>
+        <button class="modal-close" onclick="closeModal('shareModal')">×</button>
       </div>
-      <div class="row">
-        <textarea id="content" placeholder="Nội dung"></textarea>
+      <div class="form-group">
+        <label>Link chia sẻ</label>
+        <input type="text" id="shareLink" readonly />
       </div>
-      <div class="row">
-        <button id="btnSave">Lưu</button>
-        <button id="btnDelete" class="ghost">Xóa</button>
-        <button id="btnShare">Share Link</button>
+      <div class="btn-group">
+        <button id="btnCopyLink" class="primary">📋 Copy Link</button>
+        <button class="ghost" onclick="closeModal('shareModal')">Đóng</button>
       </div>
-      <div id="editorMsg" class="muted"></div>
-      <div id="shareArea" class="row hidden">
-        <input id="shareLink" readonly />
-        <button id="btnCopy" class="ghost">Copy</button>
-      </div>
-    </section>
-  </main>
+    </div>
+  </div>
 
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script>
-    const authBox = document.getElementById('authBox')
-    const notesBox = document.getElementById('notesBox')
-    const editorBox = document.getElementById('editorBox')
-    const notesList = document.getElementById('notesList')
-    const emailEl = document.getElementById('email')
-    const passwordEl = document.getElementById('password')
-    const authMsg = document.getElementById('authMsg')
-    const authStatus = document.getElementById('authStatus')
-    const titleEl = document.getElementById('title')
-    const contentEl = document.getElementById('content')
-    const editorMsg = document.getElementById('editorMsg')
-    const shareArea = document.getElementById('shareArea')
-    const shareLinkEl = document.getElementById('shareLink')
-    const btnCopy = document.getElementById('btnCopy')
-
     let token = localStorage.getItem('token') || ''
     let currentNoteId = null
     let notes = []
-    let autoSaveTimer = null
+    let currentType = 'plain'
+    let quillEditor = null
     let isGuest = false
-    
+
+    // Initialize Quill
+    quillEditor = new Quill('#editor', {
+      theme: 'snow',
+      placeholder: 'Nhập nội dung...',
+      modules: {
+        toolbar: [
+          [{ 'header': [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+          [{ 'color': [] }, { 'background': [] }],
+          ['link', 'image'],
+          ['clean']
+        ]
+      }
+    })
+
     async function initGuestToken() {
       if (!token) {
         try {
@@ -124,42 +242,6 @@
       }
     }
 
-    function setAuthUI() {
-      const btnShowAuth = document.getElementById('btnShowAuth')
-      const btnLogout = document.getElementById('btnLogout')
-      const guestMsg = document.getElementById('guestMsg')
-      const notesTitle = document.getElementById('notesTitle')
-      
-      try {
-        const decoded = token ? JSON.parse(atob(token.split('.')[1])) : null
-        isGuest = decoded?.isGuest || false
-      } catch (e) {
-        isGuest = false
-      }
-      
-      if (token && !isGuest) {
-        btnShowAuth.classList.add('hidden')
-        btnLogout.classList.remove('hidden')
-        authStatus.textContent = 'Đã đăng nhập'
-        guestMsg.classList.add('hidden')
-        notesTitle.textContent = 'Ghi chú của tôi'
-      } else if (token && isGuest) {
-        btnShowAuth.classList.remove('hidden')
-        btnLogout.classList.add('hidden')
-        authStatus.textContent = ''
-        guestMsg.classList.remove('hidden')
-        notesTitle.textContent = 'Ghi chú (chế độ khách)'
-      } else {
-        btnShowAuth.classList.remove('hidden')
-        btnLogout.classList.add('hidden')
-        authStatus.textContent = ''
-        guestMsg.classList.remove('hidden')
-        notesTitle.textContent = 'Ghi chú (chế độ khách)'
-        notes = []
-        renderNotes()
-      }
-    }
-
     async function api(path, opts = {}) {
       const headers = { 'Content-Type': 'application/json' }
       if (token) headers['Authorization'] = 'Bearer ' + token
@@ -169,178 +251,339 @@
       return data
     }
 
+    function showModal(id) {
+      document.getElementById(id).classList.add('show')
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('show')
+    }
+
     async function register() {
-      authMsg.textContent = ''
-      const email = emailEl.value.trim()
-      const password = passwordEl.value
+      const email = document.getElementById('email').value.trim()
+      const password = document.getElementById('password').value
+      const authMsg = document.getElementById('authMsg')
+      
       if (!email || !password || password.length < 6) {
         authMsg.textContent = 'Nhập email và mật khẩu (>=6 ký tự)'
         return
       }
+      
       try {
         await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) })
-        authMsg.textContent = 'Đăng kí thành công, hãy đăng nhập'
+        authMsg.textContent = 'Đăng ký thành công! Hãy đăng nhập.'
+        authMsg.style.color = '#27ae60'
       } catch (e) {
-        const code = e.status
-        if (code === 409) authMsg.textContent = 'Email đã tồn tại'
-        else if (code === 400) authMsg.textContent = 'Thiếu thông tin đăng kí'
-        else authMsg.textContent = 'Lỗi đăng kí'
+        authMsg.textContent = e.status === 409 ? 'Email đã tồn tại' : 'Lỗi đăng ký'
+        authMsg.style.color = '#e74c3c'
       }
     }
 
     async function login() {
-      authMsg.textContent = ''
-      const email = emailEl.value.trim()
-      const password = passwordEl.value
-      if (!email || !password) { authMsg.textContent = 'Nhập email và mật khẩu'; return }
+      const email = document.getElementById('email').value.trim()
+      const password = document.getElementById('password').value
+      const authMsg = document.getElementById('authMsg')
+      
+      if (!email || !password) {
+        authMsg.textContent = 'Nhập email và mật khẩu'
+        return
+      }
+      
       try {
         const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
         token = r.token
         localStorage.setItem('token', token)
-        authBox.classList.add('hidden')
-        setAuthUI()
+        closeModal('authModal')
+        updateUI()
         await loadNotes()
       } catch (e) {
         authMsg.textContent = 'Sai thông tin đăng nhập'
+        authMsg.style.color = '#e74c3c'
       }
     }
 
+    function updateUI() {
+      try {
+        const decoded = token ? JSON.parse(atob(token.split('.')[1])) : null
+        isGuest = decoded?.isGuest || false
+      } catch (e) {
+        isGuest = false
+      }
+      
+      const btnShowAuth = document.getElementById('btnShowAuth')
+      const authStatus = document.getElementById('authStatus')
+      const guestMsg = document.getElementById('guestMsg')
+      
+      if (token && !isGuest) {
+        btnShowAuth.textContent = 'Đăng xuất'
+        btnShowAuth.onclick = logout
+        authStatus.textContent = 'Đã đăng nhập'
+        guestMsg.classList.add('hidden')
+      } else {
+        btnShowAuth.textContent = 'Đăng nhập'
+        btnShowAuth.onclick = () => showModal('authModal')
+        authStatus.textContent = ''
+        guestMsg.classList.remove('hidden')
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('token')
+      token = ''
+      location.reload()
+    }
+
     async function loadNotes() {
-      editorMsg.textContent = ''
-      shareArea.classList.add('hidden')
-      const list = await api('/api/notes')
-      notes = list
-      renderNotes()
+      try {
+        notes = await api('/api/notes')
+        renderNotes()
+      } catch (e) {
+        console.error('Failed to load notes')
+      }
     }
 
     function renderNotes() {
-      notesList.innerHTML = ''
+      const list = document.getElementById('notesList')
+      list.innerHTML = ''
+      
       notes.forEach(n => {
         const li = document.createElement('li')
-        li.textContent = n.title || '(Không có tiêu đề)'
+        li.className = 'note-item' + (n._id === currentNoteId ? ' active' : '')
+        li.innerHTML = `
+          <div class="note-item-title">${n.title || '(Không có tiêu đề)'}</div>
+          <div class="note-item-date">${new Date(n.updatedAt).toLocaleDateString('vi-VN')}</div>
+        `
         li.onclick = () => selectNote(n._id)
-        if (n._id === currentNoteId) li.classList.add('active')
-        notesList.appendChild(li)
+        list.appendChild(li)
       })
     }
 
     function selectNote(id) {
-      const n = notes.find(x => x._id === id)
+      const note = notes.find(n => n._id === id)
+      if (!note) return
+      
       currentNoteId = id
-      titleEl.value = n?.title || ''
-      contentEl.value = n?.content || ''
-      shareArea.classList.remove('hidden')
-      const link = location.origin + '/share/' + n.shareId
-      shareLinkEl.value = link
+      document.getElementById('title').value = note.title || ''
+      
+      currentType = note.contentType || 'plain'
+      switchEditor(currentType)
+      
+      if (currentType === 'plain') {
+        document.getElementById('plainContent').value = note.content || ''
+      } else if (currentType === 'rich') {
+        quillEditor.root.innerHTML = note.content || ''
+      } else if (currentType === 'task') {
+        renderTaskList(note.content)
+      }
+      
       renderNotes()
-      loadDraft()
     }
 
-    function saveDraft() {
-      const draft = { title: titleEl.value, content: contentEl.value, noteId: currentNoteId }
-      localStorage.setItem('draft', JSON.stringify(draft))
+    function switchEditor(type) {
+      currentType = type
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+      document.querySelector(`[data-type="${type}"]`).classList.add('active')
+      
+      document.getElementById('plainEditor').classList.add('hidden')
+      document.getElementById('richEditor').classList.add('hidden')
+      document.getElementById('taskEditor').classList.add('hidden')
+      
+      if (type === 'plain') document.getElementById('plainEditor').classList.remove('hidden')
+      else if (type === 'rich') document.getElementById('richEditor').classList.remove('hidden')
+      else if (type === 'task') document.getElementById('taskEditor').classList.remove('hidden')
     }
 
-    function loadDraft() {
-      const saved = localStorage.getItem('draft')
-      if (!saved) return
+    function renderTaskList(content) {
+      const taskList = document.getElementById('taskList')
+      taskList.innerHTML = ''
+      
       try {
-        const draft = JSON.parse(saved)
-        if (draft.noteId === currentNoteId) {
-          titleEl.value = draft.title || ''
-          contentEl.value = draft.content || ''
-        }
-      } catch(e) {}
+        const tasks = JSON.parse(content || '[]')
+        tasks.forEach((task, idx) => {
+          const div = document.createElement('div')
+          div.className = 'checkbox-group'
+          div.innerHTML = `
+            <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${idx})">
+            <input type="text" value="${task.text}" onchange="updateTask(${idx}, this.value)" style="flex:1">
+            <button class="ghost" onclick="deleteTask(${idx})" style="padding:5px 10px">×</button>
+          `
+          taskList.appendChild(div)
+        })
+      } catch (e) {
+        console.error('Invalid task list')
+      }
     }
 
-    function clearDraft() {
-      localStorage.removeItem('draft')
+    function getTaskList() {
+      const tasks = []
+      document.querySelectorAll('#taskList .checkbox-group').forEach(div => {
+        const checkbox = div.querySelector('input[type="checkbox"]')
+        const input = div.querySelector('input[type="text"]')
+        tasks.push({ text: input.value, done: checkbox.checked })
+      })
+      return JSON.stringify(tasks)
     }
 
-    function autoSave() {
-      clearTimeout(autoSaveTimer)
-      autoSaveTimer = setTimeout(() => {
-        saveDraft()
-        editorMsg.textContent = 'Đã lưu tạm (local)'
-      }, 1000)
+    window.toggleTask = function(idx) {
+      const tasks = JSON.parse(getTaskList())
+      tasks[idx].done = !tasks[idx].done
+      renderTaskList(JSON.stringify(tasks))
     }
 
+    window.updateTask = function(idx, text) {
+      const tasks = JSON.parse(getTaskList())
+      tasks[idx].text = text
+    }
 
+    window.deleteTask = function(idx) {
+      const tasks = JSON.parse(getTaskList())
+      tasks.splice(idx, 1)
+      renderTaskList(JSON.stringify(tasks))
+    }
+
+    document.getElementById('btnAddTask').onclick = () => {
+      const tasks = JSON.parse(getTaskList())
+      tasks.push({ text: '', done: false })
+      renderTaskList(JSON.stringify(tasks))
+    }
 
     async function saveNote() {
-      editorMsg.textContent = ''
-      const payload = { title: titleEl.value, content: contentEl.value }
+      const title = document.getElementById('title').value
+      let content = ''
+      
+      if (currentType === 'plain') {
+        content = document.getElementById('plainContent').value
+      } else if (currentType === 'rich') {
+        content = quillEditor.root.innerHTML
+      } else if (currentType === 'task') {
+        content = getTaskList()
+      }
+      
+      const editorMsg = document.getElementById('editorMsg')
       
       try {
         if (!currentNoteId) {
-          const n = await api('/api/notes', { method: 'POST', body: JSON.stringify(payload) })
-          notes.unshift(n)
-          currentNoteId = n._id
+          const note = await api('/api/notes', {
+            method: 'POST',
+            body: JSON.stringify({ title, content, contentType: currentType })
+          })
+          notes.unshift(note)
+          currentNoteId = note._id
         } else {
-          const n = await api('/api/notes/' + currentNoteId, { method: 'PUT', body: JSON.stringify(payload) })
-          const idx = notes.findIndex(x => x._id === currentNoteId)
-          if (idx >= 0) notes[idx] = n
+          const note = await api(`/api/notes/${currentNoteId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ title, content, contentType: currentType })
+          })
+          const idx = notes.findIndex(n => n._id === currentNoteId)
+          if (idx >= 0) notes[idx] = note
         }
-        const cur = notes.find(x => x._id === currentNoteId)
-        shareArea.classList.remove('hidden')
-        shareLinkEl.value = location.origin + '/share/' + cur.shareId
+        
         renderNotes()
-        editorMsg.textContent = 'Đã lưu'
-        clearDraft()
+        editorMsg.textContent = '✓ Đã lưu'
+        editorMsg.style.color = '#27ae60'
+        setTimeout(() => editorMsg.textContent = '', 3000)
       } catch (e) {
         if (e.status === 429) {
           editorMsg.textContent = 'Khách chỉ được tạo tối đa 10 ghi chú. Vui lòng đăng nhập.'
-          authBox.classList.remove('hidden')
+          showModal('authModal')
         } else {
-          editorMsg.textContent = 'Lỗi khi lưu: ' + (e.data?.message || 'Vui lòng thử lại')
+          editorMsg.textContent = 'Lỗi khi lưu'
         }
+        editorMsg.style.color = '#e74c3c'
       }
     }
 
     async function deleteNote() {
-      if (!currentNoteId) return
+      if (!currentNoteId || !confirm('Xóa ghi chú này?')) return
       
       try {
-        await api('/api/notes/' + currentNoteId, { method: 'DELETE' })
-        notes = notes.filter(x => x._id !== currentNoteId)
+        await api(`/api/notes/${currentNoteId}`, { method: 'DELETE' })
+        notes = notes.filter(n => n._id !== currentNoteId)
         currentNoteId = null
-        titleEl.value = ''
-        contentEl.value = ''
-        shareArea.classList.add('hidden')
+        document.getElementById('title').value = ''
+        document.getElementById('plainContent').value = ''
+        quillEditor.root.innerHTML = ''
+        renderTaskList('[]')
         renderNotes()
-        editorMsg.textContent = 'Đã xóa'
       } catch (e) {
-        editorMsg.textContent = 'Lỗi khi xóa'
+        alert('Lỗi khi xóa')
       }
     }
 
-    titleEl.addEventListener('input', autoSave)
-    contentEl.addEventListener('input', autoSave)
-
-    document.getElementById('btnShowAuth').onclick = () => authBox.classList.remove('hidden')
-    document.getElementById('btnCloseAuth').onclick = () => authBox.classList.add('hidden')
-    document.getElementById('btnRegister').onclick = register
-    document.getElementById('btnLogin').onclick = login
-    document.getElementById('btnLogout').onclick = () => { localStorage.removeItem('token'); clearDraft(); token=''; authBox.classList.add('hidden'); setAuthUI() }
-    document.getElementById('btnNew').onclick = () => { currentNoteId=null; titleEl.value=''; contentEl.value=''; shareArea.classList.add('hidden'); clearDraft(); renderNotes() }
-    document.getElementById('btnSave').onclick = saveNote
-    document.getElementById('btnDelete').onclick = deleteNote
-    document.getElementById('btnShare').onclick = () => { 
+    function shareNote() {
       if (!currentNoteId) {
-        editorMsg.textContent = 'Lưu ghi chú trước để share'
+        alert('Lưu ghi chú trước khi chia sẻ')
         return
       }
-      const cur=notes.find(x=>x._id===currentNoteId)
-      if (cur && cur.shareId) {
-        shareLinkEl.value = location.origin + '/share/' + cur.shareId
-        shareArea.classList.remove('hidden')
+      
+      const note = notes.find(n => n._id === currentNoteId)
+      if (note && note.shareId) {
+        document.getElementById('shareLink').value = location.origin + '/share/' + note.shareId
+        showModal('shareModal')
       }
     }
-    btnCopy.onclick = async () => { try { await navigator.clipboard.writeText(shareLinkEl.value) } catch(e){} }
+
+    document.getElementById('btnCopyLink').onclick = async () => {
+      const link = document.getElementById('shareLink').value
+      try {
+        await navigator.clipboard.writeText(link)
+        alert('Đã copy link!')
+      } catch (e) {
+        alert('Không thể copy. Hãy copy thủ công.')
+      }
+    }
+
+    async function exportNote() {
+      if (!currentNoteId) {
+        alert('Chọn ghi chú để tải xuống')
+        return
+      }
+      
+      const note = notes.find(n => n._id === currentNoteId)
+      const title = note.title || 'note'
+      let content = note.content
+      
+      if (note.contentType === 'rich') {
+        const blob = new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title></head><body>${content}</body></html>`], { type: 'text/html' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = title + '.html'
+        a.click()
+      } else {
+        const blob = new Blob([content], { type: 'text/plain' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = title + '.txt'
+        a.click()
+      }
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.onclick = () => switchEditor(tab.dataset.type)
+    })
+
+    document.getElementById('btnNew').onclick = () => {
+      currentNoteId = null
+      document.getElementById('title').value = ''
+      document.getElementById('plainContent').value = ''
+      quillEditor.root.innerHTML = ''
+      renderTaskList('[]')
+      renderNotes()
+    }
+
+    document.getElementById('btnSave').onclick = saveNote
+    document.getElementById('btnDelete').onclick = deleteNote
+    document.getElementById('btnShare').onclick = shareNote
+    document.getElementById('btnExport').onclick = exportNote
+    document.getElementById('btnSettings').onclick = () => showModal('settingsModal')
+    document.getElementById('btnLogin').onclick = login
+    document.getElementById('btnRegister').onclick = register
 
     ;(async () => {
       await initGuestToken()
-      setAuthUI()
+      updateUI()
       if (token) await loadNotes()
     })()
   </script>

@@ -36,7 +36,12 @@ const noteSchema = new mongoose.Schema({
   guestId: { type: String, default: null },
   title: { type: String, default: '' },
   content: { type: String, default: '' },
+  contentType: { type: String, enum: ['plain', 'rich', 'task'], default: 'plain' },
   shareId: { type: String, index: true },
+  isPublic: { type: Boolean, default: true },
+  password: { type: String, default: null },
+  editorPassword: { type: String, default: null },
+  folder: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 })
@@ -46,6 +51,7 @@ noteSchema.pre('save', function (next) {
 })
 noteSchema.index({ user: 1, updatedAt: -1 })
 noteSchema.index({ guestId: 1, createdAt: -1 })
+noteSchema.index({ shareId: 1 })
 const Note = mongoose.model('Note', noteSchema)
 
 function auth(req, res, next) {
@@ -123,7 +129,7 @@ app.get('/api/notes', async (req, res) => {
 
 app.post('/api/notes', async (req, res) => {
   try {
-    const { title, content } = req.body
+    const { title, content, contentType, isPublic, password, editorPassword, folder } = req.body
     const h = req.headers.authorization || ''
     const token = h.startsWith('Bearer ') ? h.slice(7) : ''
     let userId = null
@@ -155,7 +161,12 @@ app.post('/api/notes', async (req, res) => {
       guestId: isGuest ? guestId : null,
       title: title || '', 
       content: content || '', 
-      shareId
+      contentType: contentType || 'plain',
+      shareId,
+      isPublic: isPublic !== false,
+      password: password || null,
+      editorPassword: editorPassword || null,
+      folder: folder || null
     })
     
     return res.status(201).json(note)
@@ -167,10 +178,19 @@ app.post('/api/notes', async (req, res) => {
 
 app.put('/api/notes/:id', async (req, res) => {
   try {
-    const { title, content } = req.body
+    const { title, content, contentType, isPublic, password, editorPassword, folder } = req.body
+    const updateData = { updatedAt: new Date() }
+    if (title !== undefined) updateData.title = title
+    if (content !== undefined) updateData.content = content
+    if (contentType !== undefined) updateData.contentType = contentType
+    if (isPublic !== undefined) updateData.isPublic = isPublic
+    if (password !== undefined) updateData.password = password
+    if (editorPassword !== undefined) updateData.editorPassword = editorPassword
+    if (folder !== undefined) updateData.folder = folder
+    
     const n = await Note.findOneAndUpdate(
       { _id: req.params.id },
-      { title: title || '', content: content || '', updatedAt: new Date() },
+      updateData,
       { new: true }
     )
     if (!n) return res.status(404).json({ error: 'not_found' })
@@ -191,11 +211,58 @@ app.delete('/api/notes/:id', async (req, res) => {
   }
 })
 
+app.post('/api/notes/share/:shareId/verify', async (req, res) => {
+  try {
+    const { password } = req.body
+    const n = await Note.findOne({ shareId: req.params.shareId })
+    if (!n) return res.status(404).json({ error: 'not_found' })
+    if (n.password && n.password !== password) {
+      return res.status(401).json({ error: 'invalid_password' })
+    }
+    return res.json({ 
+      title: n.title, 
+      content: n.content, 
+      contentType: n.contentType,
+      updatedAt: n.updatedAt,
+      hasEditorPassword: !!n.editorPassword
+    })
+  } catch (e) {
+    return res.status(500).json({ error: 'server_error' })
+  }
+})
+
 app.get('/api/notes/share/:shareId', async (req, res) => {
   try {
     const n = await Note.findOne({ shareId: req.params.shareId })
     if (!n) return res.status(404).json({ error: 'not_found' })
-    return res.json({ title: n.title, content: n.content, updatedAt: n.updatedAt })
+    if (n.password) {
+      return res.json({ requiresPassword: true })
+    }
+    return res.json({ 
+      title: n.title, 
+      content: n.content, 
+      contentType: n.contentType,
+      updatedAt: n.updatedAt,
+      hasEditorPassword: !!n.editorPassword
+    })
+  } catch (e) {
+    return res.status(500).json({ error: 'server_error' })
+  }
+})
+
+app.put('/api/notes/share/:shareId', async (req, res) => {
+  try {
+    const { title, content, editorPassword } = req.body
+    const n = await Note.findOne({ shareId: req.params.shareId })
+    if (!n) return res.status(404).json({ error: 'not_found' })
+    if (n.editorPassword && n.editorPassword !== editorPassword) {
+      return res.status(401).json({ error: 'invalid_editor_password' })
+    }
+    n.title = title || n.title
+    n.content = content || n.content
+    n.updatedAt = new Date()
+    await n.save()
+    return res.json({ success: true })
   } catch (e) {
     return res.status(500).json({ error: 'server_error' })
   }
