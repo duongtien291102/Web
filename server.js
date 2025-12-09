@@ -287,6 +287,10 @@ const port = process.env.PORT || 3000
 
 async function startServer() {
   try {
+    console.log('Starting server...')
+    console.log('MONGO_URI exists:', !!MONGO_URI)
+    console.log('JWT_SECRET exists:', !!JWT_SECRET)
+    
     await mongoose.connect(MONGO_URI, {
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
@@ -297,17 +301,14 @@ async function startServer() {
     await Note.init()
     console.log('✓ Database indexes created')
     
-    app.listen(port, () => {
-      console.log(`✓ Server listening on port ${port}`)
-    })
   } catch (e) {
-    console.error('✗ Failed to start server:', e.message)
-    console.error('Please check:')
-    console.error('1. MONGO_URI is correct')
-    console.error('2. MongoDB Atlas IP whitelist includes 0.0.0.0/0')
-    console.error('3. Database user has read/write permissions')
-    process.exit(1)
+    console.error('✗ MongoDB connection failed:', e.message)
+    console.error('Server will start anyway but database operations will fail')
   }
+  
+  app.listen(port, () => {
+    console.log(`✓ Server listening on port ${port}`)
+  })
 }
 
 startServer()
