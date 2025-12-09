@@ -262,7 +262,12 @@
         editorMsg.textContent = 'Đã lưu'
         clearDraft()
       } catch (e) {
-        editorMsg.textContent = 'Lỗi khi lưu'
+        if (e.status === 429) {
+          editorMsg.textContent = 'Khách chỉ được tạo tối đa 10 ghi chú. Vui lòng đăng nhập.'
+          authBox.classList.remove('hidden')
+        } else {
+          editorMsg.textContent = 'Lỗi khi lưu: ' + (e.data?.message || 'Vui lòng thử lại')
+        }
       }
     }
 

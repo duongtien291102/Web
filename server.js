@@ -29,10 +29,11 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema)
 
 const noteSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   title: { type: String, default: '' },
   content: { type: String, default: '' },
-  shareId: { type: String, unique: true, sparse: true },
+  shareId: { type: String, index: true },
+  guestIp: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 })
@@ -41,6 +42,7 @@ noteSchema.pre('save', function (next) {
   next()
 })
 noteSchema.index({ user: 1, updatedAt: -1 })
+noteSchema.index({ guestIp: 1, createdAt: -1 })
 const Note = mongoose.model('Note', noteSchema)
 
 function auth(req, res, next) {
@@ -100,6 +102,7 @@ app.post('/api/notes', async (req, res) => {
     const h = req.headers.authorization || ''
     const token = h.startsWith('Bearer ') ? h.slice(7) : ''
     let userId = null
+    
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET)
@@ -107,25 +110,27 @@ app.post('/api/notes', async (req, res) => {
       } catch (e) {}
     }
     
-    let attempts = 0
-    let note = null
-    while (attempts < 3) {
-      try {
-        const shareId = crypto.randomBytes(16).toString('hex')
-        note = await Note.create({ user: userId, title: title || '', content: content || '', shareId })
-        break
-      } catch (err) {
-        if (err.code === 11000 && attempts < 2) {
-          attempts++
-          continue
-        }
-        throw err
+    const guestIp = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress
+    
+    if (!userId) {
+      const guestCount = await Note.countDocuments({ guestIp, user: null })
+      if (guestCount >= 10) {
+        return res.status(429).json({ error: 'guest_limit', message: 'Khách chỉ được tạo tối đa 10 ghi chú. Vui lòng đăng nhập.' })
       }
     }
     
+    const shareId = crypto.randomBytes(16).toString('hex')
+    const note = await Note.create({ 
+      user: userId, 
+      title: title || '', 
+      content: content || '', 
+      shareId,
+      guestIp: userId ? null : guestIp
+    })
+    
     return res.status(201).json(note)
   } catch (e) {
-    console.error('Error creating note:', e)
+    console.error('Error creating note:', e.message, e.stack)
     return res.status(500).json({ error: 'server_error', message: e.message })
   }
 })
