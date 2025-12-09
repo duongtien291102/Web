@@ -232,12 +232,25 @@
       if (!token) {
         try {
           const res = await fetch('/api/guest/token')
+          if (!res.ok) throw new Error('Failed to get guest token')
           const data = await res.json()
           token = data.token
           localStorage.setItem('token', token)
           isGuest = true
+          console.log('Guest token created')
         } catch (e) {
-          console.error('Failed to get guest token')
+          console.error('Failed to get guest token:', e)
+        }
+      } else {
+        try {
+          const decoded = JSON.parse(atob(token.split('.')[1]))
+          isGuest = decoded?.isGuest || false
+          console.log('Existing token loaded, isGuest:', isGuest)
+        } catch (e) {
+          console.error('Invalid token, clearing...')
+          localStorage.removeItem('token')
+          token = ''
+          await initGuestToken()
         }
       }
     }
@@ -338,7 +351,17 @@
         notes = await api('/api/notes')
         renderNotes()
       } catch (e) {
-        console.error('Failed to load notes')
+        console.error('Failed to load notes:', e)
+        if (e.status === 401) {
+          console.log('Token invalid, getting new guest token...')
+          await initGuestToken()
+          try {
+            notes = await api('/api/notes')
+            renderNotes()
+          } catch (e2) {
+            console.error('Still failed after refresh:', e2)
+          }
+        }
       }
     }
 
@@ -582,9 +605,14 @@
     document.getElementById('btnRegister').onclick = register
 
     ;(async () => {
+      console.log('Initializing app...')
       await initGuestToken()
       updateUI()
-      if (token) await loadNotes()
+      if (token) {
+        console.log('Loading notes...')
+        await loadNotes()
+      }
+      console.log('App ready!')
     })()
   </script>
 </body>
