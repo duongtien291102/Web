@@ -113,14 +113,20 @@ app.get('/api/guest/token', (req, res) => {
 })
 
 app.get('/api/notes', async (req, res) => {
-  await connectDB()
   try {
+    await connectDB()
+    
     const h = req.headers.authorization || ''
     const token = h.startsWith('Bearer ') ? h.slice(7) : ''
     if (!token) return res.status(401).json({ error: 'unauthorized' })
     
     const decoded = jwt.verify(token, JWT_SECRET)
     let notes = []
+    
+    if (!isConnected) {
+      console.error('MongoDB not connected')
+      return res.status(503).json({ error: 'database_unavailable', message: 'Database connection failed' })
+    }
     
     if (decoded.isGuest) {
       notes = await Note.find({ guestId: decoded.guestId }).sort({ updatedAt: -1 }).lean()
@@ -130,14 +136,20 @@ app.get('/api/notes', async (req, res) => {
     
     return res.json(notes)
   } catch (e) {
-    console.error('Error loading notes:', e.message)
+    console.error('Error loading notes:', e.message, e.stack)
     return res.status(500).json({ error: 'server_error', message: e.message })
   }
 })
 
 app.post('/api/notes', async (req, res) => {
-  await connectDB()
   try {
+    await connectDB()
+    
+    if (!isConnected) {
+      console.error('MongoDB not connected')
+      return res.status(503).json({ error: 'database_unavailable', message: 'Database connection failed' })
+    }
+    
     const { title, content, contentType, isPublic, password, editorPassword, folder } = req.body
     const h = req.headers.authorization || ''
     const token = h.startsWith('Bearer ') ? h.slice(7) : ''
@@ -154,7 +166,9 @@ app.post('/api/notes', async (req, res) => {
         } else {
           userId = decoded.id
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Token decode error:', e.message)
+      }
     }
     
     if (isGuest) {
@@ -178,9 +192,10 @@ app.post('/api/notes', async (req, res) => {
       folder: folder || null
     })
     
+    console.log('Note created:', note._id)
     return res.status(201).json(note)
   } catch (e) {
-    console.error('Error creating note:', e.message)
+    console.error('Error creating note:', e.message, e.stack)
     return res.status(500).json({ error: 'server_error', message: e.message })
   }
 })
