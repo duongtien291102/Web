@@ -32,12 +32,12 @@ const noteSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   title: { type: String, default: '' },
   content: { type: String, default: '' },
-  shareId: { type: String, unique: true },
+  shareId: { type: String, unique: true, sparse: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 })
 noteSchema.pre('save', function (next) {
-  if (!this.shareId) this.shareId = crypto.randomBytes(12).toString('hex')
+  if (!this.shareId) this.shareId = crypto.randomBytes(16).toString('hex')
   this.updatedAt = new Date()
   next()
 })
@@ -110,7 +110,8 @@ app.post('/api/notes', async (req, res) => {
     const note = await Note.create({ user: userId, title: title || '', content: content || '' })
     return res.status(201).json(note)
   } catch (e) {
-    return res.status(500).json({ error: 'server_error' })
+    console.error('Error creating note:', e)
+    return res.status(500).json({ error: 'server_error', message: e.message })
   }
 })
 
@@ -125,7 +126,8 @@ app.put('/api/notes/:id', async (req, res) => {
     if (!n) return res.status(404).json({ error: 'not_found' })
     return res.json(n)
   } catch (e) {
-    return res.status(500).json({ error: 'server_error' })
+    console.error('Error updating note:', e)
+    return res.status(500).json({ error: 'server_error', message: e.message })
   }
 })
 
