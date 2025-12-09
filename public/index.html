@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Note Online</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>" />
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 0; }
+    header { padding: 12px 16px; background: #222; color: #fff; display: flex; align-items: center; justify-content: space-between; }
+    main { padding: 16px; display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    input, textarea, button { font: inherit; }
+    input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+    textarea { min-height: 220px; }
+    button { padding: 8px 12px; border: 1px solid #333; background: #333; color: #fff; border-radius: 6px; cursor: pointer; }
+    button.ghost { background: #fff; color: #333; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; }
+    li.active { background: #f5f5f5; }
+    .hidden { display: none; }
+    .muted { color: #666; font-size: 12px; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>Note Online</div>
+    <div id="authStatus" class="muted"></div>
+  </header>
+  <main>
+    <section class="card" id="authBox">
+      <h3>Đăng nhập / Đăng kí</h3>
+      <div class="row">
+        <input type="email" id="email" placeholder="Email" required />
+      </div>
+      <div class="row">
+        <input type="password" id="password" placeholder="Mật khẩu" minlength="6" required />
+      </div>
+      <div class="row">
+        <button id="btnLogin">Đăng nhập</button>
+        <button id="btnRegister" class="ghost">Đăng kí</button>
+      </div>
+      <div id="authMsg" class="muted"></div>
+    </section>
+
+    <section class="card hidden" id="notesBox">
+      <div class="flex-between">
+        <h3>Ghi chú của tôi</h3>
+        <button id="btnLogout" class="ghost">Đăng xuất</button>
+      </div>
+      <div class="row">
+        <button id="btnNew">Tạo ghi chú mới</button>
+      </div>
+      <div class="row" style="gap:16px">
+        <div style="width:100%">
+          <ul id="notesList"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card hidden" id="editorBox">
+      <h3>Soạn thảo</h3>
+      <div class="row">
+        <input id="title" placeholder="Tiêu đề" />
+      </div>
+      <div class="row">
+        <textarea id="content" placeholder="Nội dung"></textarea>
+      </div>
+      <div class="row">
+        <button id="btnSave">Lưu</button>
+        <button id="btnDelete" class="ghost">Xóa</button>
+        <button id="btnShare">Share Link</button>
+      </div>
+      <div id="editorMsg" class="muted"></div>
+      <div id="shareArea" class="row hidden">
+        <input id="shareLink" readonly />
+        <button id="btnCopy" class="ghost">Copy</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const authBox = document.getElementById('authBox')
+    const notesBox = document.getElementById('notesBox')
+    const editorBox = document.getElementById('editorBox')
+    const notesList = document.getElementById('notesList')
+    const emailEl = document.getElementById('email')
+    const passwordEl = document.getElementById('password')
+    const authMsg = document.getElementById('authMsg')
+    const authStatus = document.getElementById('authStatus')
+    const titleEl = document.getElementById('title')
+    const contentEl = document.getElementById('content')
+    const editorMsg = document.getElementById('editorMsg')
+    const shareArea = document.getElementById('shareArea')
+    const shareLinkEl = document.getElementById('shareLink')
+    const btnCopy = document.getElementById('btnCopy')
+
+    let token = localStorage.getItem('token') || ''
+    let currentNoteId = null
+    let notes = []
+    let autoSaveTimer = null
+
+    function setAuthUI() {
+      if (token) {
+        authBox.classList.add('hidden')
+        notesBox.classList.remove('hidden')
+        editorBox.classList.remove('hidden')
+        authStatus.textContent = 'Đã đăng nhập'
+      } else {
+        authBox.classList.remove('hidden')
+        notesBox.classList.add('hidden')
+        editorBox.classList.add('hidden')
+        authStatus.textContent = ''
+      }
+    }
+
+    async function api(path, opts = {}) {
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = 'Bearer ' + token
+      const res = await fetch(path, { ...opts, headers })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw { status: res.status, data }
+      return data
+    }
+
+    async function register() {
+      authMsg.textContent = ''
+      const email = emailEl.value.trim()
+      const password = passwordEl.value
+      if (!email || !password || password.length < 6) {
+        authMsg.textContent = 'Nhập email và mật khẩu (>=6 ký tự)'
+        return
+      }
+      try {
+        await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) })
+        authMsg.textContent = 'Đăng kí thành công, hãy đăng nhập'
+      } catch (e) {
+        const code = e.status
+        if (code === 409) authMsg.textContent = 'Email đã tồn tại'
+        else if (code === 400) authMsg.textContent = 'Thiếu thông tin đăng kí'
+        else authMsg.textContent = 'Lỗi đăng kí'
+      }
+    }
+
+    async function login() {
+      authMsg.textContent = ''
+      const email = emailEl.value.trim()
+      const password = passwordEl.value
+      if (!email || !password) { authMsg.textContent = 'Nhập email và mật khẩu'; return }
+      try {
+        const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
+        token = r.token
+        localStorage.setItem('token', token)
+        setAuthUI()
+        await loadNotes()
+      } catch (e) {
+        authMsg.textContent = 'Sai thông tin đăng nhập'
+      }
+    }
+
+    async function loadNotes() {
+      editorMsg.textContent = ''
+      shareArea.classList.add('hidden')
+      const list = await api('/api/notes')
+      notes = list
+      renderNotes()
+    }
+
+    function renderNotes() {
+      notesList.innerHTML = ''
+      notes.forEach(n => {
+        const li = document.createElement('li')
+        li.textContent = n.title || '(Không có tiêu đề)'
+        li.onclick = () => selectNote(n._id)
+        if (n._id === currentNoteId) li.classList.add('active')
+        notesList.appendChild(li)
+      })
+    }
+
+    function selectNote(id) {
+      const n = notes.find(x => x._id === id)
+      currentNoteId = id
+      titleEl.value = n?.title || ''
+      contentEl.value = n?.content || ''
+      shareArea.classList.remove('hidden')
+      const link = location.origin + '/share/' + n.shareId
+      shareLinkEl.value = link
+      renderNotes()
+      loadDraft()
+    }
+
+    function saveDraft() {
+      if (!token) return
+      const draft = { title: titleEl.value, content: contentEl.value, noteId: currentNoteId }
+      localStorage.setItem('draft', JSON.stringify(draft))
+    }
+
+    function loadDraft() {
+      if (!token) return
+      const saved = localStorage.getItem('draft')
+      if (!saved) return
+      try {
+        const draft = JSON.parse(saved)
+        if (draft.noteId === currentNoteId) {
+          titleEl.value = draft.title || ''
+          contentEl.value = draft.content || ''
+        }
+      } catch(e) {}
+    }
+
+    function clearDraft() {
+      localStorage.removeItem('draft')
+    }
+
+    function autoSave() {
+      clearTimeout(autoSaveTimer)
+      autoSaveTimer = setTimeout(() => {
+        saveDraft()
+        editorMsg.textContent = 'Đã lưu tạm (local)'
+      }, 1000)
+    }
+
+    async function saveNote() {
+      editorMsg.textContent = ''
+      const payload = { title: titleEl.value, content: contentEl.value }
+      if (!currentNoteId) {
+        const n = await api('/api/notes', { method: 'POST', body: JSON.stringify(payload) })
+        notes.unshift(n)
+        currentNoteId = n._id
+      } else {
+        const n = await api('/api/notes/' + currentNoteId, { method: 'PUT', body: JSON.stringify(payload) })
+        const idx = notes.findIndex(x => x._id === currentNoteId)
+        if (idx >= 0) notes[idx] = n
+      }
+      const cur = notes.find(x => x._id === currentNoteId)
+      shareArea.classList.remove('hidden')
+      shareLinkEl.value = location.origin + '/share/' + cur.shareId
+      renderNotes()
+      clearDraft()
+      editorMsg.textContent = 'Đã lưu'
+    }
+
+    async function deleteNote() {
+      if (!currentNoteId) return
+      await api('/api/notes/' + currentNoteId, { method: 'DELETE' })
+      notes = notes.filter(x => x._id !== currentNoteId)
+      currentNoteId = null
+      titleEl.value = ''
+      contentEl.value = ''
+      shareArea.classList.add('hidden')
+      renderNotes()
+      editorMsg.textContent = 'Đã xóa'
+    }
+
+    titleEl.addEventListener('input', autoSave)
+    contentEl.addEventListener('input', autoSave)
+
+    document.getElementById('btnRegister').onclick = register
+    document.getElementById('btnLogin').onclick = login
+    document.getElementById('btnLogout').onclick = () => { localStorage.removeItem('token'); clearDraft(); token=''; setAuthUI() }
+    document.getElementById('btnNew').onclick = () => { currentNoteId=null; titleEl.value=''; contentEl.value=''; shareArea.classList.add('hidden'); clearDraft(); renderNotes() }
+    document.getElementById('btnSave').onclick = saveNote
+    document.getElementById('btnDelete').onclick = deleteNote
+    document.getElementById('btnShare').onclick = () => { if (!currentNoteId) return; const cur=notes.find(x=>x._id===currentNoteId); shareLinkEl.value = location.origin + '/share/' + cur.shareId; shareArea.classList.remove('hidden') }
+    btnCopy.onclick = async () => { try { await navigator.clipboard.writeText(shareLinkEl.value) } catch(e){} }
+
+    setAuthUI()
+    if (token) loadNotes()
+  </script>
+</body>
+</html>
