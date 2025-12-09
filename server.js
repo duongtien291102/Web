@@ -30,10 +30,10 @@ const User = mongoose.model('User', userSchema)
 
 const noteSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  guestId: { type: String, default: null },
   title: { type: String, default: '' },
   content: { type: String, default: '' },
   shareId: { type: String, index: true },
-  guestIp: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 })
@@ -42,7 +42,7 @@ noteSchema.pre('save', function (next) {
   next()
 })
 noteSchema.index({ user: 1, updatedAt: -1 })
-noteSchema.index({ guestIp: 1, createdAt: -1 })
+noteSchema.index({ guestId: 1, createdAt: -1 })
 const Note = mongoose.model('Note', noteSchema)
 
 function auth(req, res, next) {
@@ -87,9 +87,31 @@ app.post('/api/auth/login', async (req, res) => {
   }
 })
 
-app.get('/api/notes', auth, async (req, res) => {
+app.get('/api/guest/token', (req, res) => {
   try {
-    const notes = await Note.find({ user: req.userId }).sort({ updatedAt: -1 })
+    const guestId = crypto.randomBytes(16).toString('hex')
+    const guestToken = jwt.sign({ guestId, isGuest: true }, JWT_SECRET, { expiresIn: '30d' })
+    return res.json({ token: guestToken, guestId })
+  } catch (e) {
+    return res.status(500).json({ error: 'server_error' })
+  }
+})
+
+app.get('/api/notes', async (req, res) => {
+  try {
+    const h = req.headers.authorization || ''
+    const token = h.startsWith('Bearer ') ? h.slice(7) : ''
+    if (!token) return res.status(401).json({ error: 'unauthorized' })
+    
+    const decoded = jwt.verify(token, JWT_SECRET)
+    let notes = []
+    
+    if (decoded.isGuest) {
+      notes = await Note.find({ guestId: decoded.guestId }).sort({ updatedAt: -1 })
+    } else {
+      notes = await Note.find({ user: decoded.id }).sort({ updatedAt: -1 })
+    }
+    
     return res.json(notes)
   } catch (e) {
     return res.status(500).json({ error: 'server_error' })
@@ -102,18 +124,23 @@ app.post('/api/notes', async (req, res) => {
     const h = req.headers.authorization || ''
     const token = h.startsWith('Bearer ') ? h.slice(7) : ''
     let userId = null
+    let guestId = null
+    let isGuest = false
     
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET)
-        userId = decoded.id
+        if (decoded.isGuest) {
+          guestId = decoded.guestId
+          isGuest = true
+        } else {
+          userId = decoded.id
+        }
       } catch (e) {}
     }
     
-    const guestIp = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress
-    
-    if (!userId) {
-      const guestCount = await Note.countDocuments({ guestIp, user: null })
+    if (isGuest) {
+      const guestCount = await Note.countDocuments({ guestId, user: null })
       if (guestCount >= 10) {
         return res.status(429).json({ error: 'guest_limit', message: 'Khách chỉ được tạo tối đa 10 ghi chú. Vui lòng đăng nhập.' })
       }
@@ -122,10 +149,10 @@ app.post('/api/notes', async (req, res) => {
     const shareId = crypto.randomBytes(16).toString('hex')
     const note = await Note.create({ 
       user: userId, 
+      guestId: isGuest ? guestId : null,
       title: title || '', 
       content: content || '', 
-      shareId,
-      guestIp: userId ? null : guestIp
+      shareId
     })
     
     return res.status(201).json(note)

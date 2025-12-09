@@ -108,7 +108,21 @@
     let currentNoteId = null
     let notes = []
     let autoSaveTimer = null
-    let isGuest = !token
+    let isGuest = false
+    
+    async function initGuestToken() {
+      if (!token) {
+        try {
+          const res = await fetch('/api/guest/token')
+          const data = await res.json()
+          token = data.token
+          localStorage.setItem('token', token)
+          isGuest = true
+        } catch (e) {
+          console.error('Failed to get guest token')
+        }
+      }
+    }
 
     function setAuthUI() {
       const btnShowAuth = document.getElementById('btnShowAuth')
@@ -116,20 +130,31 @@
       const guestMsg = document.getElementById('guestMsg')
       const notesTitle = document.getElementById('notesTitle')
       
-      if (token) {
+      try {
+        const decoded = token ? JSON.parse(atob(token.split('.')[1])) : null
+        isGuest = decoded?.isGuest || false
+      } catch (e) {
+        isGuest = false
+      }
+      
+      if (token && !isGuest) {
         btnShowAuth.classList.add('hidden')
         btnLogout.classList.remove('hidden')
         authStatus.textContent = 'Đã đăng nhập'
         guestMsg.classList.add('hidden')
         notesTitle.textContent = 'Ghi chú của tôi'
-        isGuest = false
+      } else if (token && isGuest) {
+        btnShowAuth.classList.remove('hidden')
+        btnLogout.classList.add('hidden')
+        authStatus.textContent = ''
+        guestMsg.classList.remove('hidden')
+        notesTitle.textContent = 'Ghi chú (chế độ khách)'
       } else {
         btnShowAuth.classList.remove('hidden')
         btnLogout.classList.add('hidden')
         authStatus.textContent = ''
         guestMsg.classList.remove('hidden')
         notesTitle.textContent = 'Ghi chú (chế độ khách)'
-        isGuest = true
         notes = []
         renderNotes()
       }
@@ -172,6 +197,7 @@
         const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
         token = r.token
         localStorage.setItem('token', token)
+        authBox.classList.add('hidden')
         setAuthUI()
         await loadNotes()
       } catch (e) {
@@ -312,8 +338,11 @@
     }
     btnCopy.onclick = async () => { try { await navigator.clipboard.writeText(shareLinkEl.value) } catch(e){} }
 
-    setAuthUI()
-    if (token) loadNotes()
+    ;(async () => {
+      await initGuestToken()
+      setAuthUI()
+      if (token) await loadNotes()
+    })()
   </script>
 </body>
 </html>
