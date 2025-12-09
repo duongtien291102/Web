@@ -43,9 +43,8 @@ const noteSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 })
-noteSchema.pre('save', function (next) {
+noteSchema.pre('save', function () {
   this.updatedAt = new Date()
-  next()
 })
 noteSchema.index({ user: 1, updatedAt: -1 })
 noteSchema.index({ guestId: 1, createdAt: -1 })
@@ -128,6 +127,8 @@ app.get('/api/notes', async (req, res) => {
 
 app.post('/api/notes', async (req, res) => {
   try {
+    console.log('POST /api/notes - Request body:', JSON.stringify(req.body).substring(0, 200))
+    
     const { title, content, contentType, isPublic, password, editorPassword, folder } = req.body
     const h = req.headers.authorization || ''
     const token = h.startsWith('Bearer ') ? h.slice(7) : ''
@@ -135,26 +136,35 @@ app.post('/api/notes', async (req, res) => {
     let guestId = null
     let isGuest = false
     
+    console.log('Token present:', !!token)
+    
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET)
+        console.log('Token decoded:', { isGuest: decoded.isGuest, guestId: decoded.guestId?.substring(0, 8) })
         if (decoded.isGuest) {
           guestId = decoded.guestId
           isGuest = true
         } else {
           userId = decoded.id
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Token verification failed:', e.message)
+      }
     }
     
     if (isGuest) {
+      console.log('Checking guest note count for:', guestId?.substring(0, 8))
       const guestCount = await Note.countDocuments({ guestId, user: null })
+      console.log('Guest note count:', guestCount)
       if (guestCount >= 10) {
         return res.status(429).json({ error: 'guest_limit', message: 'Khách chỉ được tạo tối đa 10 ghi chú. Vui lòng đăng nhập.' })
       }
     }
     
     const shareId = crypto.randomBytes(16).toString('hex')
+    console.log('Creating note with shareId:', shareId.substring(0, 8))
+    
     const note = await Note.create({ 
       user: userId, 
       guestId: isGuest ? guestId : null,
@@ -168,9 +178,11 @@ app.post('/api/notes', async (req, res) => {
       folder: folder || null
     })
     
+    console.log('Note created successfully:', note._id)
     return res.status(201).json(note)
   } catch (e) {
-    console.error('Error creating note:', e.message, e.stack)
+    console.error('❌ Error creating note:', e.message)
+    console.error('Stack:', e.stack)
     return res.status(500).json({ error: 'server_error', message: e.message })
   }
 })
