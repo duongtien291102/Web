@@ -15,14 +15,12 @@ app.use(express.static(path.join(__dirname, 'public')))
 const MONGO_URI = process.env.MONGO_URI
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret'
 
-mongoose.connect(MONGO_URI, {
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-}).then(() => {
-  console.log('MongoDB connected successfully')
-}).catch((e) => {
-  console.error('MongoDB connection error:', e.message)
-})
+if (!MONGO_URI) {
+  console.error('MONGO_URI is not defined in environment variables')
+  process.exit(1)
+}
+
+mongoose.set('strictQuery', false)
 
 const userSchema = new mongoose.Schema({
   email: { type: String, unique: true, lowercase: true, trim: true },
@@ -116,14 +114,15 @@ app.get('/api/notes', async (req, res) => {
     let notes = []
     
     if (decoded.isGuest) {
-      notes = await Note.find({ guestId: decoded.guestId }).sort({ updatedAt: -1 })
+      notes = await Note.find({ guestId: decoded.guestId }).sort({ updatedAt: -1 }).lean()
     } else {
-      notes = await Note.find({ user: decoded.id }).sort({ updatedAt: -1 })
+      notes = await Note.find({ user: decoded.id }).sort({ updatedAt: -1 }).lean()
     }
     
     return res.json(notes)
   } catch (e) {
-    return res.status(500).json({ error: 'server_error' })
+    console.error('Error loading notes:', e.message)
+    return res.status(500).json({ error: 'server_error', message: e.message })
   }
 })
 
@@ -273,21 +272,30 @@ app.get('/share/:shareId', (req, res) => {
 })
 
 const port = process.env.PORT || 3000
-async function ensureDb() {
-  const db = mongoose.connection.db
-  const cols = await db.listCollections().toArray()
-  const names = cols.map(c => c.name)
-  if (!names.includes('users')) await db.createCollection('users')
-  if (!names.includes('notes')) await db.createCollection('notes')
-  await User.init()
-  await Note.init()
+
+async function startServer() {
+  try {
+    await mongoose.connect(MONGO_URI, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    })
+    console.log('✓ MongoDB connected successfully')
+    
+    await User.init()
+    await Note.init()
+    console.log('✓ Database indexes created')
+    
+    app.listen(port, () => {
+      console.log(`✓ Server listening on port ${port}`)
+    })
+  } catch (e) {
+    console.error('✗ Failed to start server:', e.message)
+    console.error('Please check:')
+    console.error('1. MONGO_URI is correct')
+    console.error('2. MongoDB Atlas IP whitelist includes 0.0.0.0/0')
+    console.error('3. Database user has read/write permissions')
+    process.exit(1)
+  }
 }
 
-;(async () => {
-  try {
-    await ensureDb()
-  } catch (e) {}
-  app.listen(port, () => {
-    console.log('Server listening on ' + port)
-  })
-})()
+startServer()
