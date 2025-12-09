@@ -37,7 +37,6 @@ const noteSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 })
 noteSchema.pre('save', function (next) {
-  if (!this.shareId) this.shareId = crypto.randomBytes(16).toString('hex')
   this.updatedAt = new Date()
   next()
 })
@@ -107,7 +106,23 @@ app.post('/api/notes', async (req, res) => {
         userId = decoded.id
       } catch (e) {}
     }
-    const note = await Note.create({ user: userId, title: title || '', content: content || '' })
+    
+    let attempts = 0
+    let note = null
+    while (attempts < 3) {
+      try {
+        const shareId = crypto.randomBytes(16).toString('hex')
+        note = await Note.create({ user: userId, title: title || '', content: content || '', shareId })
+        break
+      } catch (err) {
+        if (err.code === 11000 && attempts < 2) {
+          attempts++
+          continue
+        }
+        throw err
+      }
+    }
+    
     return res.status(201).json(note)
   } catch (e) {
     console.error('Error creating note:', e)
